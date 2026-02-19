@@ -77,7 +77,14 @@ PYTHONPATH="${SCRIPT_DIR}:${PYTHONPATH}" python scripts/main.py \
     --reid_arch "${REID_ARCH}" \
     --edge_level_embed \
     --save_cp \
-    --pruning_method geometry motion_01 motion_01 motion_01 motion_01 motion_01 motion_01 motion_01 motion_01
+    --output_path /workspace/SUSHI/output \
+    --pruning_method geometry motion_01 motion_01 motion_01 motion_01 motion_01 motion_01 motion_01 motion_01 \
+    --frames_per_graph 256 \
+    --frames_per_level 2 4 8 16 32 64 128 256 256 \
+    --top_k_nns 6 \
+    --num_batch 1 \
+    --num_workers 4 \
+    --rounding_method greedy
 
 echo ""
 echo "Training complete. Checkpoints saved under experiments/${RUN}/"

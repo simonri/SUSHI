@@ -46,7 +46,7 @@ class GreedyProjector:
             node_name, viol_type = viol_constr
 
             # Determine the set of incoming / outgoing edges
-            mask = torch.zeros(self.num_nodes).bool()
+            mask = torch.zeros(self.num_nodes, device=self.final_graph.edge_index.device).bool()
             mask[node_name.int()] = True
             if viol_type == 0:  # Flow in violation
                 mask = mask[self.final_graph.edge_index[1]]

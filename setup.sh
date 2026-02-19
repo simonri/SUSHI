@@ -71,9 +71,26 @@ log "Step 2/8 – SUSHI conda environment"
 if "$CONDA" env list | grep -q "^SUSHI "; then
     log "  Environment 'SUSHI' already exists, skipping creation."
 else
-    log "  Creating environment from environment.yml (this takes ~5-10 min)..."
+    log "  Creating base environment from environment.yml (this takes ~5-10 min)..."
     "$CONDA" env create -f "${SCRIPT_DIR}/environment.yml"
     log "  Environment created."
+fi
+
+# Upgrade PyTorch to 2.0.1+cu118 for RTX 4090 (sm_89) support.
+# environment.yml ships PyTorch 1.8.2/cu102 which has no sm_89 kernels.
+TORCH_VER=$("$PYTHON" -c "import torch; print(torch.__version__)" 2>/dev/null || echo "none")
+if [[ "$TORCH_VER" != 2.0* ]]; then
+    log "  Upgrading PyTorch 1.x → 2.0.1+cu118 for RTX 40-series GPU support..."
+    "$CONDA" remove -n SUSHI --force -y \
+        pytorch torchvision torchaudio \
+        pytorch-geometric pytorch-scatter pytorch-sparse \
+        pytorch-cluster pytorch-spline-conv 2>/dev/null || true
+    "$PIP" install torch==2.0.1+cu118 torchvision==0.15.2+cu118 torchaudio==2.0.2+cu118 \
+        --index-url https://download.pytorch.org/whl/cu118 -q
+    "$PIP" install torch_geometric==2.3.1 -q
+    "$PIP" install torch_scatter torch_sparse torch_cluster torch_spline_conv \
+        -f https://data.pyg.org/whl/torch-2.0.1+cu118.html -q
+    log "  PyTorch upgrade complete."
 fi
 
 # ── Step 3 – fast-reid ────────────────────────────────────────────────────────
@@ -91,6 +108,11 @@ log "  Installing fast-reid dependencies..."
 "$PIP" install -q -r "${FASTREID_DIR}/docs/requirements.txt"
 # libstdcxx-ng upgrade needed so pre-built lapsolver wheel (GLIBCXX_3.4.29) loads
 "$CONDA" install -n SUSHI -c conda-forge libstdcxx-ng -y -q
+# numpy 1.21+ required by Pillow 10 (upgraded alongside PyTorch 2.0.1)
+"$PIP" install -q "numpy>=1.21,<1.24"
+# fast-reid uses torch._six which was removed in PyTorch 2.0 — patch it
+sed -i 's/^from torch._six import string_classes$/try:\n    from torch._six import string_classes\nexcept ImportError:\n    string_classes = (str,)/' \
+    "${FASTREID_DIR}/fastreid/data/build.py"
 
 # ── Step 4 – MOT20 dataset ────────────────────────────────────────────────────
 log "Step 4/8 – MOT20 dataset"
